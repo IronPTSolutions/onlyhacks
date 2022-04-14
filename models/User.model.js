@@ -46,6 +46,13 @@ userSchema.virtual('posts', {
   justOne: false,
 })
 
+userSchema.virtual('subscriptions', {
+  ref: 'Subscription',
+  localField: '_id',
+  foreignField: 'user',
+  justOne: false,
+})
+
 userSchema.pre('save', function(next) {
   if (this.isModified('password')) {
     bcrypt.hash(this.password, SALT_ROUNDS)

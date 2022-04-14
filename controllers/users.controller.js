@@ -1,5 +1,6 @@
 const createError = require('http-errors')
 const User = require('../models/User.model')
+const Subscription = require('../models/Subscription.model')
 const Stripe = require('stripe')
 require('../models/Post.model')
 
@@ -34,8 +35,13 @@ module.exports.list = (req, res, next) => {
 
 module.exports.getCurrentUser = (req, res, next) => {
   User.findById(req.currentUser)
-    .populate({path: 'posts', options:{ sort: [{"posts": "desc"}] }})
-    .sort({ posts: "desc" })
+    .populate('posts')
+    .populate({
+      path: 'subscriptions',
+      populate: {
+        path: 'targetUser'
+      }
+    })
     .then(user => {
       if (!user) {
         // not found
@@ -48,18 +54,31 @@ module.exports.getCurrentUser = (req, res, next) => {
 }
 
 module.exports.checkout = (req, res, next) => {
-  const stripe = new Stripe("sk_test_IFN1CA1z1Ng1EkL9it3BTWhu")
+  const stripe = new Stripe(process.env.STRIPE_KEY)
 
-  const { id, amount } = req.body
+  const { subUserId, amount, paymentId } = req.body
+  Subscription.findOne({ user: req.currentUser, targetUser: subUserId })
+    .then(sub => {
+      if (sub) {
+        res.status(400).json({ message: 'already subscribed'})
+      } else {
+       return stripe.paymentIntents.create({
+          amount,
+          currency: "USD",
+          description: "subscripción al usuario del producto",
+          payment_method: paymentId,
+          confirm: true
+        })
+        .then(result => {
+          return Subscription.create({ user: req.currentUser,  targetUser: subUserId })
+            .then(subscription => {
+              console.log(subscription)
+              res.status(201).json({ message: "confirmed!", result })
+            })
+        })
+      }
+    })
 
-  stripe.paymentIntents.create({
-    amount,
-    currency: "USD",
-    description: "id del producto",
-    payment_method: id,
-    confirm: true
-  })
-  .then(result => res.status(200).json({ message: "confirmed!", result }))
   .catch(next)
 
 }
