@@ -17,7 +17,8 @@ const userSchema = new mongoose.Schema(
     },
     name: {
       type: String,
-      required: [true, 'Name is required']
+      required: [true, 'Name is required'],
+      minlength: [3, 'Name must include at least 3 characters']
     },
     password: {
       type: String,
@@ -37,6 +38,20 @@ const userSchema = new mongoose.Schema(
     }
   }
 )
+
+userSchema.virtual('posts', {
+  ref: 'Post',
+  localField: '_id',
+  foreignField: 'user',
+  justOne: false,
+})
+
+userSchema.virtual('subscriptions', {
+  ref: 'Subscription',
+  localField: '_id',
+  foreignField: 'user',
+  justOne: false,
+})
 
 userSchema.pre('save', function(next) {
   if (this.isModified('password')) {
